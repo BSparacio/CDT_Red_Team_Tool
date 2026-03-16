@@ -3,9 +3,6 @@
   hosts: target_windows
   vars_files:
     - vault.yml
-  vars:
-    ansible_password: "{{ vault_admin_password }}"
-
   tasks:
     - name: Drop WinRM setup script into CloudBase-init LocalScripts
       win_copy:

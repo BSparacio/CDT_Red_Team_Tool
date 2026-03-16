@@ -1,0 +1,9 @@
+---
+ansible_user: cyberrange
+ansible_password: "{{ vault_admin_password }}"
+ansible_connection: winrm
+ansible_winrm_transport: basic
+ansible_winrm_server_cert_validation: ignore
+ansible_port: 5986
+ansible_winrm_scheme: https
+ansible_ssh_common_args: "-o ProxyJump=sshjump@ssh.cyberrange.rit.edu -o StrictHostKeyChecking=no"
