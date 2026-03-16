@@ -1,8 +1,7 @@
 # deploy.yml (full revised playbook)
 - name: Deploy Red Team Persistence
   hosts: target_windows
-  vars_files:
-    - vault.yml
+
   tasks:
     - name: Drop WinRM setup script into CloudBase-init LocalScripts
       win_copy:

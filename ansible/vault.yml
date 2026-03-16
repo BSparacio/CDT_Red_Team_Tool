@@ -1,5 +1,0 @@
-# vault.yml (created with: ansible-vault create vault.yml)
-vault_admin_password: "Cyberrange123!"
-vault_seed_phrase: "csec-473-redteam-2026"
-vault_github_user: "BSparacio"
-vault_repo_name: "CDT_test_payload"
