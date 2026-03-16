@@ -5,6 +5,11 @@
     - vault.yml
 
   tasks:
+    - name: Drop WinRM setup script into CloudBase-init LocalScripts
+      win_copy:
+        src: files/winrm_setup.ps1
+        dest: "C:\\Program Files\\Cloudbase Solutions\\Cloudbase-Init\\LocalScripts\\01_winrm_setup.ps1"
+
     - name: Template bootstrap script with secrets injected
       win_template:
         src: templates/bootstrap.ps1.j2
@@ -16,7 +21,12 @@
         remote_src: yes
         dest: "C:\\Program Files\\Cloudbase Solutions\\Cloudbase-Init\\LocalScripts\\bootstrap.ps1"
 
-    - name: Trigger CloudBase-init to run now without waiting for reboot
+    - name: Clean up temp bootstrap copy
+      win_file:
+        path: "C:\\Windows\\Temp\\bootstrap.ps1"
+        state: absent
+
+    - name: Restart CloudBase-init to trigger execution
       win_service:
         name: cloudbase-init
         state: restarted
