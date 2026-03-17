@@ -24,7 +24,31 @@
         path: "C:\\Windows\\Temp\\bootstrap.ps1"
         state: absent
 
-    - name: Restart CloudBase-init to trigger execution
+    - name: Clear CloudBase-init run history so plugins execute again
+      win_shell: |
+        $path = "HKLM:\SOFTWARE\Cloudbase Solutions\Cloudbase-Init"
+        Get-ChildItem $path | ForEach-Object {
+            Remove-Item $_.PSPath -Recurse -Force
+        }
+        Write-Host "Registry cleared"
+
+    - name: Verify registry was cleared
+      win_shell: |
+        $path = "HKLM:\SOFTWARE\Cloudbase Solutions\Cloudbase-Init"
+        $keys = Get-ChildItem $path
+        if ($keys) {
+            Write-Host "FAILED: Keys still exist"
+            $keys | ForEach-Object { Write-Host $_.Name }
+        } else {
+            Write-Host "SUCCESS: Registry is clear"
+        }
+
+    - name: Stop CloudBase-init service before starting fresh
       win_service:
         name: cloudbase-init
-        state: restarted
+        state: stopped
+
+    - name: Start CloudBase-init to trigger LocalScripts execution
+      win_service:
+        name: cloudbase-init
+        state: started
