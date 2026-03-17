@@ -53,7 +53,7 @@
         state: started
 
     - name: Wait for CloudBase-init to finish running scripts
-      win_pause:
+      pause:
         seconds: 45
 
     - name: Confirm bootstrap ran successfully
