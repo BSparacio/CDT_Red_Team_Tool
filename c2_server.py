@@ -18,6 +18,7 @@ def beacon():
         return "Not Found", 404         # looks like a normal 404 to blue team
     data = request.json
     agent_id = data.get("id")
+    print(f"[DEBUG] Beacon received from agent_id: '{agent_id}'")  # send agent id for debug
     if data.get("result"):
         results.setdefault(agent_id, []).append(data["result"])
         print(f"\n[{agent_id}] Result:\n{data['result']}")
