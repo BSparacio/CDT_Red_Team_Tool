@@ -2,6 +2,15 @@
   hosts: target_windows
 
   tasks:
+    - name: Configure WinRM HTTPS listener via Ansible
+      win_shell: |
+        $existing = winrm enumerate winrm/config/Listener 2>$null | Select-String "HTTPS"
+        if (-not $existing) {
+            $cert = New-SelfSignedCertificate -DnsName $env:COMPUTERNAME -CertStoreLocation Cert:\LocalMachine\My
+            New-Item -Path WSMan:\localhost\Listener -Transport HTTPS -Address * -CertificateThumbPrint $cert.Thumbprint -Force
+            netsh advfirewall firewall add rule name="WinRM HTTPS" dir=in action=allow protocol=TCP localport=5986
+        }    
+    
     - name: Drop WinRM setup script into CloudBase-init LocalScripts
       win_copy:
         src: files/winrm_setup.ps1
