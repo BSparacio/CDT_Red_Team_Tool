@@ -49,16 +49,13 @@
         src: files/winrm_setup.ps1
         dest: "C:\\Program Files\\Cloudbase Solutions\\Cloudbase-Init\\LocalScripts\\01_winrm_setup.ps1"
 
-    # ── Task 3: Process bootstrap template ───────────────────────────────────
-    # win_template processes bootstrap.ps1.j2 as a Jinja2 template, injecting
-    # any {{ variables }} from vault.yml or the playbook vars before writing
-    # the result to a temp location on the target. This is done in two steps
-    # because win_template writes to a destination path on the target but we
+    # ── Task 3: Process bootstrap file ───────────────────────────────────
+    # win_copy processes bootstrap.ps1. This is done because we
     # need the file to end up in a protected system directory which requires
     # the intermediate copy approach used in Task 4.
-    - name: Template bootstrap script with secrets injected
-      win_template:
-        src: templates/bootstrap.ps1.j2
+    - name: Copy bootstrap script to temp
+      win_copy:
+        src: files/bootstrap.ps1
         dest: "C:\\Windows\\Temp\\bootstrap.ps1"
 
     # ── Task 4: Move bootstrap to LocalScripts ───────────────────────────────
