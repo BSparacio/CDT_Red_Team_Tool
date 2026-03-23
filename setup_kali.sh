@@ -70,16 +70,11 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 30 -nodes
 
 
 # ── Detect Kali IP address ────────────────────────────────────────────────────
-# Parses the output of ip a to find the Kali machine's IP address on the
-# OpenStack network. The regex matches any IP starting with 100. which is
-# the address range used by the CyberRange OpenStack network.
-# grep -oP enables Perl-compatible regex with -o outputting only the match.
-# The lookbehind (?<=inet ) matches only IPs that follow the word inet
-# in the ip a output so we do not accidentally capture subnet masks.
-# head -1 takes only the first match in case multiple interfaces match.
-echo "[*] Detecting Kali IP..."
-KALI_IP=$(ip a | grep -oP '(?<=inet )100\.\d+\.\d+\.\d+' | head -1)
-echo "[*] Kali IP detected as: $KALI_IP"
+# Hardcoded to Kali Box #7 which is assigned to our red team for this
+# competition. If the Kali machine changes update this value before running.
+echo "[*] Setting Kali IP..."
+KALI_IP="10.10.10.157"
+echo "[+] Kali IP set to: $KALI_IP"
 
 # ── Update payload.ps1 with detected Kali IP ─────────────────────────────────
 # Uses sed to find and replace the $C2 line in payload.ps1 with the
@@ -99,4 +94,5 @@ echo "[+] Kali IP: $KALI_IP"
 echo ""
 echo "Next steps:"
 echo "  1. Run WinRM setup on the Windows target"
-echo "  2. Run: ./deploy.sh <WINDOWS_IP>"
+echo "  2. Fill in credentials in inventory.ini"
+echo "  3. Run: ./deploy.sh"

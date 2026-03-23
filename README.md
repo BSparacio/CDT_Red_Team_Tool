@@ -324,7 +324,7 @@ curl -sk -X POST https://localhost/issue \
 
 **Known issues:**
 - The CloudBase-init registry clear occasionally requires a full reboot to take effect on some machine configurations. If LocalScripts are not executing after deployment a reboot resolves it.
-- The `setup_kali.sh` IP detection regex matches `100.x.x.x` addresses only. If the CyberRange network addressing changes the script will fail to detect the Kali IP and `payload.ps1` must be updated manually.
+- The `setup_kali.sh` IP detection regex matches `100.x.x.x` and `10.x.x.x` addresses only. If the CyberRange network addressing changes the script will fail to detect the Kali IP and `payload.ps1` must be updated manually.
 
 **Future improvements:**
 - Add a proper operator console to `c2_server.py` to replace manual curl commands
